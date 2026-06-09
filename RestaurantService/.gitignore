@@ -1,0 +1,29 @@
+## Bỏ qua các thư mục sinh ra khi Build và Chạy ứng dụng .NET
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+
+## Bỏ qua cấu hình cá nhân của IDE (VS Code, Visual Studio)
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Bỏ qua file cấu hình môi trường chứa mật khẩu/bí mật (Nên giữ lại appsettings.json gốc, chỉ chặn bản local)
+appsettings.Development.json
+.env
+
+## Bỏ qua các file rác của Hệ điều hành Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Bỏ qua log và dữ liệu tạm của Docker / Hệ thống
+*.log
+.dockerignore
