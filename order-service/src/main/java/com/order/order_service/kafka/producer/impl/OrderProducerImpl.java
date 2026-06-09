@@ -6,6 +6,8 @@ import com.order.order_service.dto.event.OrderVoucherUpdatedEvent;
 import com.order.order_service.dto.event.VoucherAcceptedEvent;
 import com.order.order_service.kafka.producer.OrderProducer;
 import com.order.order_service.kafka.topic.KafkaTopics;
+import com.order.order_service.context.AppContextHolder;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -22,15 +24,16 @@ public class OrderProducerImpl
 
     @Override
     public void publish_order_created(
-            OrderCreatedEvent event,
-            String trace_id,
-            String user_id) {
+            OrderCreatedEvent event) {
 
         ProducerRecord<String,Object> record =
                 new ProducerRecord<>(
                         KafkaTopics.ORDER_CREATED,
                         event.getOrder_id(),
                         event);
+
+        String trace_id = AppContextHolder.getTraceId() != null ? AppContextHolder.getTraceId() : UUID.randomUUID().toString();
+        String user_id = AppContextHolder.getUserId() != null ? AppContextHolder.getUserId() : "SYSTEM";
 
         record.headers().add(
                 "X-Trace-Id",
@@ -44,9 +47,7 @@ public class OrderProducerImpl
     }
     @Override
     public void publish_order_cancelled(
-            OrderCancelledEvent event,
-            String trace_id,
-            String user_id) {
+            OrderCancelledEvent event) {
 
         ProducerRecord<String, Object> record =
                 new ProducerRecord<>(
@@ -54,6 +55,9 @@ public class OrderProducerImpl
                         event.getOrder_id(),
                         event
                 );
+
+        String trace_id = AppContextHolder.getTraceId() != null ? AppContextHolder.getTraceId() : UUID.randomUUID().toString();
+        String user_id = AppContextHolder.getUserId() != null ? AppContextHolder.getUserId() : "SYSTEM";
 
         record.headers().add(
                 "X-Trace-Id",
@@ -67,9 +71,7 @@ public class OrderProducerImpl
     }
     @Override
     public void publish_order_voucher_updated(
-            OrderVoucherUpdatedEvent event,
-            String trace_id,
-            String user_id) {
+            OrderVoucherUpdatedEvent event) {
 
         ProducerRecord<String, Object> record =
                 new ProducerRecord<>(
@@ -77,6 +79,9 @@ public class OrderProducerImpl
                         event.getOrder_id(),
                         event
                 );
+
+        String trace_id = AppContextHolder.getTraceId() != null ? AppContextHolder.getTraceId() : UUID.randomUUID().toString();
+        String user_id = AppContextHolder.getUserId() != null ? AppContextHolder.getUserId() : "SYSTEM";
 
         record.headers().add(
                 "X-Trace-Id",
@@ -90,9 +95,7 @@ public class OrderProducerImpl
     }
     @Override
     public void publish_voucher_accepted(
-            VoucherAcceptedEvent event,
-            String trace_id,
-            String user_id) {
+            VoucherAcceptedEvent event) {
 
         ProducerRecord<String, Object> record =
                 new ProducerRecord<>(
@@ -100,6 +103,9 @@ public class OrderProducerImpl
                         event.getOrder_id(),
                         event
                 );
+
+        String trace_id = AppContextHolder.getTraceId() != null ? AppContextHolder.getTraceId() : UUID.randomUUID().toString();
+        String user_id = AppContextHolder.getUserId() != null ? AppContextHolder.getUserId() : "SYSTEM";
 
         record.headers().add(
                 "X-Trace-Id",

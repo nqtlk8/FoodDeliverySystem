@@ -8,20 +8,12 @@ import com.order.order_service.dto.event.VoucherAcceptedEvent;
 public interface OrderProducer {
 
     void publish_order_created(
-            OrderCreatedEvent event,
-            String trace_id,
-            String user_id);
+            OrderCreatedEvent event);
     void publish_order_cancelled(
-            OrderCancelledEvent event,
-            String trace_id,
-            String user_id);
+            OrderCancelledEvent event);
     void publish_order_voucher_updated(
-            OrderVoucherUpdatedEvent event,
-            String trace_id,
-            String user_id);
+            OrderVoucherUpdatedEvent event);
 
     void publish_voucher_accepted(
-            VoucherAcceptedEvent event,
-            String trace_id,
-            String user_id);
+            VoucherAcceptedEvent event);
 }

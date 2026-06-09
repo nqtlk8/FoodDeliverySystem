@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import com.order.order_service.context.AppContextHolder;
 
 import java.util.UUID;
 
@@ -27,6 +28,8 @@ public class DeliveryCompletedConsumer {
             @Header(value = "X-User-Id", required = false) String user_id
     ) {
         try {
+            if (trace_id != null) AppContextHolder.setTraceId(trace_id);
+            if (user_id != null) AppContextHolder.setUserId(user_id);
 
             // [LOG 1]
             log.info("==> [LOG 1] Đã nhận Delivery Completed Event!");
@@ -67,6 +70,8 @@ public class DeliveryCompletedConsumer {
             log.error("❌ [ERR LOG] Có lỗi xảy ra bên trong hàm xử lý logic!");
             log.error("❌ Chi tiết thông điệp lỗi: {}", e.getMessage());
             log.error("❌ Chi tiết dấu vết lỗi (Stack Trace): ", e);
+        } finally {
+            AppContextHolder.clear();
         }
     }
 }

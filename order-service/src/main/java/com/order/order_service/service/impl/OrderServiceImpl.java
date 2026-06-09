@@ -29,12 +29,12 @@ public class OrderServiceImpl
 
     @Override
     public String create_order(
-            CreateOrderRequest request,
-            String trace_id,
-            String user_id) {
+            CreateOrderRequest request) {
 
         String order_id =
                 UUID.randomUUID().toString();
+        
+        String user_id = com.order.order_service.context.AppContextHolder.getUserId();
 
         Order order = Order.builder()
                 .id(order_id)
@@ -92,9 +92,7 @@ public class OrderServiceImpl
                         .build();
 
         orderProducer.publish_order_created(
-                event,
-                trace_id,
-                user_id);
+                event);
 
         return order_id;
     }
@@ -156,9 +154,7 @@ public class OrderServiceImpl
     @Override
     public void applyDriverNotFound(
             String orderId,
-            String reasonCode,
-            String traceId,
-            String userId) {
+            String reasonCode) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
@@ -176,17 +172,13 @@ public class OrderServiceImpl
                         .build();
 
         orderProducer.publish_order_cancelled(
-                event,
-                traceId,
-                userId
+                event
         );
     }
     @Override
     public void updateVoucher(
             String orderId,
-            String voucherCode,
-            String traceId,
-            String userId) {
+            String voucherCode) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
@@ -209,16 +201,12 @@ public class OrderServiceImpl
                         .build();
 
         orderProducer.publish_order_voucher_updated(
-                event,
-                traceId,
-                userId
+                event
         );
     }
     @Override
     public void removeVoucher(
-            String orderId,
-            String traceId,
-            String userId) {
+            String orderId) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
@@ -240,9 +228,7 @@ public class OrderServiceImpl
                         .build();
 
         orderProducer.publish_voucher_accepted(
-                event,
-                traceId,
-                userId
+                event
         );
     }
 }

@@ -7,9 +7,7 @@ import java.math.BigDecimal;
 public interface OrderService {
 
     String create_order(
-            CreateOrderRequest request,
-            String trace_id,
-            String user_id);
+            CreateOrderRequest request);
     void applyVoucherAccepted(
             String orderId, BigDecimal finalAmount);
 
@@ -20,17 +18,11 @@ public interface OrderService {
     void applyDeliveryCompleted(String orderId);
     void applyDriverNotFound(
             String orderId,
-            String reasonCode,
-            String traceId,
-            String userId);
+            String reasonCode);
     void updateVoucher(
             String orderId,
-            String voucherCode,
-            String traceId,
-            String userId);
+            String voucherCode);
 
     void removeVoucher(
-            String orderId,
-            String traceId,
-            String userId);
+            String orderId);
 }

@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import com.order.order_service.context.AppContextHolder;
 
 import java.util.UUID;
 
@@ -27,6 +28,8 @@ public class DriverAssignedConsumer {
             @Header(value = "X-User-Id", required = false) String user_id
     ) {
         try {
+            if (trace_id != null) AppContextHolder.setTraceId(trace_id);
+            if (user_id != null) AppContextHolder.setUserId(user_id);
 
             log.info("==> [LOG 1] Đã nhận Driver Assigned Event!");
 
@@ -64,6 +67,8 @@ public class DriverAssignedConsumer {
             log.error("❌ Có lỗi xảy ra!");
             log.error("❌ Message: {}", e.getMessage());
             log.error("❌ Stack Trace:", e);
+        } finally {
+            AppContextHolder.clear();
         }
     }
 }

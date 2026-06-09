@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import com.order.order_service.context.AppContextHolder;
 
 @Component
 @Slf4j
@@ -23,8 +24,15 @@ public class OrderCreatedConsumer {
             @Header("X-User-Id")
             String user_id) {
 
-        log.info("EVENT = {}", event);
-        log.info("TRACE = {}", trace_id);
-        log.info("USER = {}", user_id);
+        try {
+            if (trace_id != null) AppContextHolder.setTraceId(trace_id);
+            if (user_id != null) AppContextHolder.setUserId(user_id);
+
+            log.info("EVENT = {}", event);
+            log.info("TRACE = {}", trace_id);
+            log.info("USER = {}", user_id);
+        } finally {
+            AppContextHolder.clear();
+        }
     }
 }

@@ -116,6 +116,29 @@ services:
     networks:
       - food-network
 
+  # Order Module (Java Spring Boot)
+  order-module:
+    build: 
+      context: ./order-service
+    container_name: order-module
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/order_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update 
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - food-network
+
 volumes:
   postgres_data:
   kafka_data:

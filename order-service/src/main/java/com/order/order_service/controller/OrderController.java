@@ -2,75 +2,49 @@ package com.order.order_service.controller;
 
 import com.order.order_service.dto.request.CreateOrderRequest;
 import com.order.order_service.dto.request.UpdateVoucherRequest;
-import com.order.order_service.entity.Order;
 import com.order.order_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/v1/orders") // Đã đổi thành /v1/orders
 @RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
 
+    // 1. Tạo đơn hàng mới
     @PostMapping
     public ResponseEntity<String> create_order(
-
-            @RequestHeader("X-Trace-Id")
-            String trace_id,
-
-            @RequestHeader("X-User-Id")
-            String user_id,
-
-            @RequestBody
-            CreateOrderRequest request) {
+            @RequestBody CreateOrderRequest request) {
 
         return ResponseEntity.ok(
-                orderService.create_order(
-                        request,
-                        trace_id,
-                        user_id));
+                orderService.create_order(request)
+        );
     }
+
+    // 2. Cập nhật/Áp dụng Voucher mới cho đơn hàng
     @PutMapping("/{orderId}/voucher")
     public ResponseEntity<Void> updateVoucher(
-
             @PathVariable String orderId,
-
-            @RequestHeader("X-Trace-Id")
-            String traceId,
-
-            @RequestHeader("X-User-Id")
-            String userId,
-
-            @RequestBody
-            UpdateVoucherRequest request) {
+            @RequestBody UpdateVoucherRequest request) {
 
         orderService.updateVoucher(
                 orderId,
-                request.getNew_voucher_code(),
-                traceId,
-                userId);
-
+                request.getNew_voucher_code()
+        );
         return ResponseEntity.ok().build();
     }
-    @PostMapping("/{orderId}/remove-voucher")
+
+    // 3. Xóa/Gỡ Voucher khỏi đơn hàng (Đổi từ POST sang DELETE)
+    @DeleteMapping("/{orderId}/voucher")
     public ResponseEntity<Void> removeVoucher(
-
-            @PathVariable String orderId,
-
-            @RequestHeader("X-Trace-Id")
-            String traceId,
-
-            @RequestHeader("X-User-Id")
-            String userId) {
+            @PathVariable String orderId) {
 
         orderService.removeVoucher(
-                orderId,
-                traceId,
-                userId);
-
+                orderId
+        );
         return ResponseEntity.ok().build();
     }
 }
