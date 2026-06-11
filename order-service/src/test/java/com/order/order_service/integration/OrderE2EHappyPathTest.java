@@ -11,6 +11,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Base64;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -27,8 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class OrderE2EHappyPathTest {
 
-    // Trỏ tới Gateway hoặc trực tiếp Order Service đang chạy qua Docker Compose
-    private static final String ORDER_SERVICE_URL = "http://localhost:8083/v1/orders";
+    // Trỏ tới API Gateway
+    private static final String GATEWAY_ORDER_URL = "http://localhost:8080/v1/orders";
+
+    // Trỏ tới Keycloak để xin Token
+    private static final String KEYCLOAK_TOKEN_URL = "http://localhost:8081/realms/food-delivery-realm/protocol/openid-connect/token";
     private static final String DB_URL = "jdbc:postgresql://localhost:5432/order_db";
     private static final String DB_USER = "root";
     private static final String DB_PASSWORD = "rootpassword";
@@ -54,12 +62,15 @@ public class OrderE2EHappyPathTest {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        
-        // Mock thông tin Gateway truyền sang
-        String testUserId = "test-e2e-user-123";
-        String traceId = UUID.randomUUID().toString();
-        headers.set("X-User-Id", testUserId);
-        headers.set("X-Trace-Id", traceId);
+
+        // Lấy Token từ Keycloak
+        System.out.println("🔐 Đang đăng nhập Keycloak để lấy Token...");
+        String token = getAccessToken();
+        String userId = extractUserIdFromToken(token);
+        System.out.println("✅ Đã lấy Token thành công. User ID (sub): " + userId);
+
+        // Header gửi vào API Gateway (Chỉ cần Token, KHÔNG CẦN X-User-Id / X-Trace-Id)
+        headers.setBearerAuth(token);
 
         String requestBody = """
                 {
@@ -80,8 +91,8 @@ public class OrderE2EHappyPathTest {
                 """;
 
         HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(ORDER_SERVICE_URL, request, String.class);
-        
+        ResponseEntity<String> response = restTemplate.postForEntity(GATEWAY_ORDER_URL, request, String.class);
+
         assertEquals(200, response.getStatusCodeValue(), "API tạo order phải trả về 200 OK");
         String orderId = response.getBody();
         assertNotNull(orderId);
@@ -89,7 +100,7 @@ public class OrderE2EHappyPathTest {
         System.out.println("✅ [1] Đã tạo đơn hàng thành công qua REST API. Order ID: " + orderId);
 
         // ==========================================
-        // Bước 2: Chờ trạng thái WAITING_FOR_DRIVER 
+        // Bước 2: Chờ trạng thái WAITING_FOR_DRIVER
         // Voucher service sẽ nhận ORDER_CREATED và bắn lại VOUCHER_ACCEPTED
         // ==========================================
         System.out.println("⏳ Chờ Voucher Service xử lý logic...");
@@ -103,13 +114,19 @@ public class OrderE2EHappyPathTest {
         // Bước 3: Đóng vai Driver Service -> Publish driver.assigned
         // ==========================================
         System.out.println("🚀 [3] Mock Driver Service: Tài xế nhận đơn. Gửi Kafka Event...");
-        String driverAssignedEvent = String.format("{\"order_id\":\"%s\", \"restaurant_id\":\"REST_01\", \"driver_name\":\"Tài xế E2E Test\"}", orderId);
-        
+        String driverAssignedEvent = String.format(
+                "{\"order_id\":\"%s\", \"restaurant_id\":\"REST_01\", \"driver_name\":\"Tài xế E2E Test\"}", orderId);
+
+        // Sinh một Trace ID mới cho ngữ cảnh Driver (Mô phỏng 1 tiến trình riêng biệt)
+        String driverTraceId = UUID.randomUUID().toString();
+
         ProducerRecord<String, String> record1 = new ProducerRecord<>("driver.assigned", orderId, driverAssignedEvent);
-        record1.headers().add("X-Trace-Id", traceId.getBytes(StandardCharsets.UTF_8));
-        record1.headers().add("X-User-Id", testUserId.getBytes(StandardCharsets.UTF_8));
-        // Add __TypeId__ header to satisfy Spring Kafka's JsonDeserializer in order-service
-        record1.headers().add("__TypeId__", "com.order.order_service.dto.event.DriverAssignedEvent".getBytes(StandardCharsets.UTF_8));
+        record1.headers().add("X-Trace-Id", driverTraceId.getBytes(StandardCharsets.UTF_8));
+        record1.headers().add("X-User-Id", userId.getBytes(StandardCharsets.UTF_8));
+        // Add __TypeId__ header to satisfy Spring Kafka's JsonDeserializer in
+        // order-service
+        record1.headers().add("__TypeId__",
+                "com.order.order_service.dto.event.DriverAssignedEvent".getBytes(StandardCharsets.UTF_8));
         producer.send(record1);
 
         // Chờ Order Service cập nhật trạng thái
@@ -123,11 +140,14 @@ public class OrderE2EHappyPathTest {
         // ==========================================
         System.out.println("🛵 [4] Mock Driver Service: Giao hàng xong. Gửi Kafka Event...");
         String deliveryCompletedEvent = String.format("{\"order_id\":\"%s\"}", orderId);
-        ProducerRecord<String, String> record2 = new ProducerRecord<>("delivery.completed", orderId, deliveryCompletedEvent);
-        record2.headers().add("X-Trace-Id", traceId.getBytes(StandardCharsets.UTF_8));
-        record2.headers().add("X-User-Id", testUserId.getBytes(StandardCharsets.UTF_8));
-        // Add __TypeId__ header to satisfy Spring Kafka's JsonDeserializer in order-service
-        record2.headers().add("__TypeId__", "com.order.order_service.dto.event.DeliveryCompletedEvent".getBytes(StandardCharsets.UTF_8));
+        ProducerRecord<String, String> record2 = new ProducerRecord<>("delivery.completed", orderId,
+                deliveryCompletedEvent);
+        record2.headers().add("X-Trace-Id", driverTraceId.getBytes(StandardCharsets.UTF_8));
+        record2.headers().add("X-User-Id", userId.getBytes(StandardCharsets.UTF_8));
+        // Add __TypeId__ header to satisfy Spring Kafka's JsonDeserializer in
+        // order-service
+        record2.headers().add("__TypeId__",
+                "com.order.order_service.dto.event.DeliveryCompletedEvent".getBytes(StandardCharsets.UTF_8));
         producer.send(record2);
 
         // Chờ Order Service cập nhật trạng thái
@@ -139,7 +159,7 @@ public class OrderE2EHappyPathTest {
 
     private String getOrderStatus(String orderId) {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement("SELECT status FROM orders WHERE id = ?")) {
+                PreparedStatement stmt = conn.prepareStatement("SELECT status FROM orders WHERE id = ?")) {
             stmt.setString(1, orderId);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -150,5 +170,35 @@ public class OrderE2EHappyPathTest {
             System.err.println("Database fetch error: " + e.getMessage());
         }
         return null;
+    }
+
+    private String getAccessToken() throws Exception {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+        // Vui lòng điều chỉnh theo cấu hình thật trên Keycloak của bạn:
+        map.add("client_id", "api-gateway-client");
+        map.add("client_secret", "TzvDIlurSaA5HPIBUgd61JBsmxlGo03r");
+        map.add("username", "testuser");
+        map.add("password", "testuser");
+        map.add("grant_type", "password");
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity(KEYCLOAK_TOKEN_URL, request, String.class);
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response.getBody());
+        return root.path("access_token").asText();
+    }
+
+    private String extractUserIdFromToken(String token) throws Exception {
+        String[] chunks = token.split("\\.");
+        Base64.Decoder decoder = Base64.getUrlDecoder();
+        String payload = new String(decoder.decode(chunks[1]));
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(payload);
+        return root.path("sub").asText();
     }
 }
